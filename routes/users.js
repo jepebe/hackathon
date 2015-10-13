@@ -2,16 +2,27 @@ var express = require('express');
 var router = express.Router();
 var UserModel = require("../model/users");
 
+function createResponse(code, value) {
+    var response = {code: "" + code};
+    if(code == 200 || code == 201) {
+        response.data = value;
+    } else if(code == 400 || code == 404) {
+        response.error = value;
+    }
+    return response;
+}
+
 router.route("/")
     .get(function (req, res) {
         // Mongo command to fetch all data from collection.
         UserModel.find(function (err, data) {
             var response = {};
             if (err) {
-                response = {"error": "Error fetching data"};
+                response = createResponse(400, "Error fetching data: " + err);
             } else {
-                response = {"data": data};
+                response = createResponse(200, data);
             }
+            res.status(response.code);
             res.json(response);
         });
     })
@@ -24,10 +35,11 @@ router.route("/")
         user.save(function (err) {
             var response = {};
             if (err) {
-                response = {"error": "Error adding data: " + err};
+                response = createResponse(400, "Error fetching data: " + err);
             } else {
-                response = {"data": user};
+                response = createResponse(201, user);
             }
+            res.status(response.code);
             res.json(response);
         });
     });
@@ -37,10 +49,13 @@ router.route("/:id")
         var response = {};
         UserModel.findById(req.params.id, function (err, data) {
             if (err) {
-                response = {"error": "Error fetching data"};
+                response = createResponse(400, "Error fetching data: " + err);
+            } else if(data == null) {
+                response = createResponse(404, "Unable to find user with id: " +  req.params.id);
             } else {
-                response = {"data": data};
+                response = createResponse(200, data);
             }
+            res.status(response.code);
             res.json(response);
         });
     })
@@ -58,26 +73,27 @@ router.route("/:id")
             var response = {};
 
             if (err) {
-                response = {"error": "Error fetching data: " + err};
+                response = createResponse(400, "Error fetching data: " + err);
             } else if(doc == null) {
-                response = {"error": "Unable to find user with id: " +  req.params.id};
+                response = createResponse(404, "Unable to find user with id: " +  req.params.id);
             } else {
-                response = {"data": doc};
+                response = createResponse(200, doc);
             }
+            res.status(response.code);
             res.json(response);
         });
     })
     .delete(function (req, res) {
         UserModel.findOneAndRemove({_id: req.params.id}, function(err, doc, result) {
             var response = {};
-
             if (err) {
-                response = {"error": "Error deleting user: " + err};
+                response = createResponse(400, "Error deleting user: " + err);
             } else if(doc == null) {
-                response = {"error":  "Unable to find user with id: " +  req.params.id};
+                response = createResponse(404, "Unable to find user with id: " +  req.params.id);
             } else {
-                response = {"data": doc};
+                response = createResponse(200, doc);
             }
+            res.status(response.code);
             res.json(response);
 
         });

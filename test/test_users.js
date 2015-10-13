@@ -9,6 +9,32 @@ var User = require('../model/users');
 
 chai.use(chai_http);
 
+var mongoose = require('mongoose');
+
+//http://mherman.org/blog/2015/09/10/testing-node-js-with-mocha-and-chai/
+
+function checkResponse(response, code) {
+    response.should.have.status(code);
+    response.should.be.json;
+    response.body.should.be.a('object');
+
+    if(code == 200 || code == 201) {
+        response.body.should.not.have.property('error');
+        response.body.should.have.property('code');
+        response.body.code.should.be.equal("" + code);
+
+        response.body.should.have.property('data');
+        response.body.data.should.not.be.null;
+    } else {
+        response.body.should.have.property('error');
+        response.body.should.not.have.property('data');
+        response.body.should.have.property('code');
+        response.body.code.should.be.equal("" + code);
+    }
+
+
+
+}
 
 describe('User', function () {
     User.collection.drop();
@@ -33,11 +59,8 @@ describe('User', function () {
         chai.request(server)
             .get('/users')
             .end(function (err, res) {
-                res.should.have.status(200);
-                res.should.be.json;
-                res.body.should.be.a('object');
-                res.body.should.not.have.property('error');
-                res.body.should.have.property('data');
+                checkResponse(res, 200);
+
                 res.body.data.should.be.a('array');
                 var data = res.body.data;
                 data[0].should.have.property('_id');
@@ -57,10 +80,7 @@ describe('User', function () {
             chai.request(server)
                 .get('/users/' + data.id)
                 .end(function (err, res) {
-                    res.should.have.status(200);
-                    res.should.be.json;
-                    res.body.should.be.a('object');
-                    res.body.should.have.property('data');
+                    checkResponse(res, 200);
                     res.body.data.should.be.a('object');
                     res.body.data.should.have.property('_id');
                     res.body.data.should.have.property('username');
@@ -81,11 +101,7 @@ describe('User', function () {
             .post('/users')
             .send({username: username, email: email})
             .end(function (err, res) {
-                res.should.have.status(200);
-                res.should.be.json;
-                res.body.should.be.a('object');
-                res.body.should.not.have.property('error');
-                res.body.should.have.property('data');
+                checkResponse(res, 201);
                 res.body.data.should.be.a('object');
                 res.body.data.should.have.property('username');
                 res.body.data.username.should.be.equal(username);
@@ -102,11 +118,7 @@ describe('User', function () {
                     .put('/users/' + res.body.data[0]._id)
                     .send({'username': 'prattman'})
                     .end(function (error, response) {
-                        response.should.have.status(200);
-                        response.should.be.json;
-                        response.body.should.be.a('object');
-                        response.body.should.not.have.property('error');
-                        response.body.should.have.property('data');
+                        checkResponse(response, 200);
                         response.body.data.should.be.a('object');
                         response.body.data.should.have.property('username');
                         response.body.data.should.have.property('email');
@@ -117,6 +129,24 @@ describe('User', function () {
                     });
             });
     });
+    it('should fail to update a SINGLE user with illegal id on /users/<id> PUT', function (done) {
+        chai.request(server)
+            .put('/users/666')
+            .send({'username': 'illegalman'})
+            .end(function (error, response) {
+                checkResponse(response, 400);
+                done();
+            });
+    });
+    it('should fail to update a SINGLE unknown user on /users/<id> PUT', function (done) {
+        chai.request(server)
+            .put('/users/' + mongoose.Types.ObjectId(666))
+            .send({'username': 'failman'})
+            .end(function (error, response) {
+                checkResponse(response, 404);
+                done();
+            });
+    });
     it('should delete a SINGLE user on /users/<id> DELETE', function (done) {
         chai.request(server)
             .get('/users')
@@ -124,10 +154,7 @@ describe('User', function () {
                 chai.request(server)
                     .delete('/users/' + res.body.data[0]._id)
                     .end(function (error, response) {
-                        response.should.have.status(200);
-                        response.should.be.json;
-                        response.body.should.be.a('object');
-                        response.body.should.have.property('data');
+                        checkResponse(response, 200);
                         response.body.data.should.be.a('object');
                         response.body.data.should.have.property('username');
                         response.body.data.should.have.property('_id');
@@ -139,13 +166,9 @@ describe('User', function () {
 
     it('should fail to delete a SINGLE unknown user on /users/<id> DELETE', function (done) {
         chai.request(server)
-            .delete('/users/666')
+            .delete('/users/' + mongoose.Types.ObjectId(666))
             .end(function (error, response) {
-                response.should.have.status(200);
-                response.should.be.json;
-                response.body.should.be.a('object');
-                response.body.should.not.have.property('data');
-                response.body.should.have.property('error');
+                checkResponse(response, 404);
                 done();
             });
     });
